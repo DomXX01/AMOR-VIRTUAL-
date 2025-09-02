@@ -2,188 +2,118 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Rompecabezas para ti 💖</title>
+  <title>Rompecabezas para mi amor 💖</title>
   <style>
     body {
-      margin: 0;
-      font-family: "Comic Sans MS", sans-serif;
-      background: #ffe6f0;
+      font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
-      overflow-x: hidden;
+      justify-content: center;
+      background: #f7e9f0;
+      margin: 0;
+      height: 100vh;
     }
     h1 {
-      margin: 20px;
-      color: #d63384;
-      text-shadow: 1px 1px 2px white;
-    }
-    canvas {
-      background: white;
-      border: 3px solid #d63384;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       margin: 10px;
+      color: #b34fa3;
     }
-    #puzzleContainer {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      align-items: center;
-    }
-    #board, #pieces {
+    #puzzle-container {
       position: relative;
+      width: 600px;
+      height: 600px;
+      border: 3px solid #b34fa3;
+      background: white;
+      margin-top: 10px;
     }
-    #mensaje {
-      margin: 20px;
-      font-size: 1.5rem;
-      text-align: center;
-      color: #6a1b9a;
-    }
-    /* corazones flotantes */
-    .heart {
+    .piece {
       position: absolute;
-      color: #ff4d88;
-      font-size: 20px;
-      animation: float 6s linear infinite;
-      opacity: 0.8;
+      width: 100px;
+      height: 100px;
+      background-size: 600px 600px;
+      cursor: grab;
+      border: 1px solid #ccc;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+      border-radius: 6px;
+      transition: box-shadow 0.2s;
     }
-    @keyframes float {
-      0% { transform: translateY(100vh) scale(0.8); opacity: 0.8; }
-      100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+    .piece:active {
+      cursor: grabbing;
+      box-shadow: 4px 4px 10px rgba(0,0,0,0.4);
     }
   </style>
 </head>
 <body>
   <h1>💖 Nuestro Rompecabezas 💖</h1>
-  <div id="puzzleContainer">
-    <canvas id="board" width="600" height="600"></canvas>
-    <canvas id="pieces" width="300" height="600"></canvas>
-  </div>
-  <div id="mensaje">Eres la pieza que completa mi vida 💕</div>
+  <div id="puzzle-container"></div>
 
   <script>
-    const rows = 6, cols = 6;
-    const boardCanvas = document.getElementById("board");
-    const piecesCanvas = document.getElementById("pieces");
-    const boardCtx = boardCanvas.getContext("2d");
-    const piecesCtx = piecesCanvas.getContext("2d");
+    const rows = 6;
+    const cols = 6;
+    const pieceSize = 100;
+    const container = document.getElementById("puzzle-container");
+    const imageSrc = "foto.jpg"; // <-- tu foto aquí
 
-    const img = new Image();
-    img.src = "foto.jpg"; // usa aquí la foto que quieras
-    let pieceWidth, pieceHeight;
-    let pieces = [];
-    let draggingPiece = null, offsetX = 0, offsetY = 0;
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
 
-    img.onload = () => {
-      pieceWidth = boardCanvas.width / cols;
-      pieceHeight = boardCanvas.height / rows;
-      createPieces();
-      shufflePieces();
-      draw();
-    };
-
-    function createPieces() {
-      pieces = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          pieces.push({
-            row: r, col: c,
-            x: piecesCanvas.width/2 + Math.random()*100 - 50,
-            y: Math.random()* (piecesCanvas.height - pieceHeight),
-            placed: false
-          });
-        }
+    // Crear piezas
+    const pieces = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const piece = document.createElement("div");
+        piece.classList.add("piece");
+        piece.style.backgroundImage = `url(${imageSrc})`;
+        piece.style.backgroundPosition = `-${col * pieceSize}px -${row * pieceSize}px`;
+        piece.dataset.row = row;
+        piece.dataset.col = col;
+        pieces.push(piece);
       }
     }
 
-    function shufflePieces() {
-      pieces.forEach(p => {
-        p.x = Math.random() * (piecesCanvas.width - pieceWidth);
-        p.y = Math.random() * (piecesCanvas.height - pieceHeight);
-      });
-    }
-
-    function draw() {
-      boardCtx.clearRect(0,0,boardCanvas.width,boardCanvas.height);
-      piecesCtx.clearRect(0,0,piecesCanvas.width,piecesCanvas.height);
-      
-      // dibujar piezas colocadas en tablero
-      pieces.forEach(p => {
-        if (p.placed) {
-          boardCtx.drawImage(
-            img,
-            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight,
-            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight
-          );
-          boardCtx.strokeRect(p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight);
-        }
-      });
-
-      // dibujar piezas aún en el área
-      pieces.forEach(p => {
-        if (!p.placed || p === draggingPiece) {
-          piecesCtx.drawImage(
-            img,
-            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight,
-            p.x, p.y, pieceWidth, pieceHeight
-          );
-          piecesCtx.strokeRect(p.x, p.y, pieceWidth, pieceHeight);
-        }
-      });
-
-      requestAnimationFrame(draw);
-    }
-
-    piecesCanvas.addEventListener("mousedown", e => {
-      const mx = e.offsetX, my = e.offsetY;
-      for (let i = pieces.length-1; i >= 0; i--) {
-        const p = pieces[i];
-        if (!p.placed && mx > p.x && mx < p.x+pieceWidth && my > p.y && my < p.y+pieceHeight) {
-          draggingPiece = p;
-          offsetX = mx - p.x;
-          offsetY = my - p.y;
-          break;
-        }
+    // Mezclar posiciones iniciales
+    const positions = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        positions.push({x: col * pieceSize, y: row * pieceSize});
       }
+    }
+    shuffle(positions);
+
+    pieces.forEach((piece, i) => {
+      piece.style.left = positions[i].x + "px";
+      piece.style.top = positions[i].y + "px";
+      makeDraggable(piece);
+      container.appendChild(piece);
     });
 
-    piecesCanvas.addEventListener("mousemove", e => {
-      if (draggingPiece) {
-        draggingPiece.x = e.offsetX - offsetX;
-        draggingPiece.y = e.offsetY - offsetY;
-      }
-    });
+    // Hacer piezas arrastrables libremente
+    function makeDraggable(el) {
+      let offsetX, offsetY, dragging = false;
 
-    piecesCanvas.addEventListener("mouseup", e => {
-      if (draggingPiece) {
-        const correctX = draggingPiece.col*pieceWidth;
-        const correctY = draggingPiece.row*pieceHeight;
-        if (Math.abs(draggingPiece.x - correctX) < 20 &&
-            Math.abs(draggingPiece.y - correctY) < 20) {
-          draggingPiece.x = correctX;
-          draggingPiece.y = correctY;
-          draggingPiece.placed = true;
-        }
-        draggingPiece = null;
-      }
-    });
+      el.addEventListener("mousedown", e => {
+        dragging = true;
+        offsetX = e.clientX - el.offsetLeft;
+        offsetY = e.clientY - el.offsetTop;
+        el.style.zIndex = 1000; // traer al frente
+      });
 
-    // corazones flotantes
-    function createHeart() {
-      const heart = document.createElement("div");
-      heart.className = "heart";
-      heart.textContent = "❤️";
-      heart.style.left = Math.random()*window.innerWidth+"px";
-      heart.style.top = "100vh";
-      heart.style.fontSize = (20 + Math.random()*20)+"px";
-      document.body.appendChild(heart);
-      setTimeout(()=>heart.remove(),6000);
+      document.addEventListener("mousemove", e => {
+        if (!dragging) return;
+        el.style.left = (e.clientX - offsetX) + "px";
+        el.style.top = (e.clientY - offsetY) + "px";
+      });
+
+      document.addEventListener("mouseup", () => {
+        dragging = false;
+        el.style.zIndex = 1;
+      });
     }
-    setInterval(createHeart, 800);
   </script>
 </body>
 </html>
