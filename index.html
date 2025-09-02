@@ -2,152 +2,189 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Rompecabezas para ti ❤️</title>
+  <title>Rompecabezas para ti 💖</title>
   <style>
     body {
       margin: 0;
-      padding: 0;
+      font-family: "Comic Sans MS", sans-serif;
+      background: #ffe6f0;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      background: #fff0f6;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
+      justify-content: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    .container {
-      display: flex;
-      gap: 40px;
-      align-items: flex-start;
+    h1 {
+      margin: 20px;
+      color: #d63384;
+      text-shadow: 1px 1px 2px white;
     }
-    #puzzle-board {
-      border: 3px solid #444;
-      width: 500px;
-      height: 500px;
-      background: #fafafa;
-      position: relative;
+    canvas {
+      background: white;
+      border: 3px solid #d63384;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      margin: 10px;
     }
-    #pieces {
+    #puzzleContainer {
       display: flex;
       flex-wrap: wrap;
-      width: 300px;
-      height: 500px;
-      overflow-y: auto;
-      border: 2px dashed #aaa;
-      padding: 10px;
-      background: #fff;
+      gap: 20px;
+      justify-content: center;
+      align-items: center;
     }
-    .piece {
-      width: 100px;
-      height: 100px;
-      background-image: url('foto.jpg'); /* Cambia por tu foto */
-      background-size: 500px 500px;
-      margin: 2px;
-      cursor: grab;
+    #board, #pieces {
+      position: relative;
     }
-    .message {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      font-size: 20px;
-      color: #333;
-      background: #fff;
-      padding: 10px 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    #mensaje {
+      margin: 20px;
+      font-size: 1.5rem;
+      text-align: center;
+      color: #6a1b9a;
     }
+    /* corazones flotantes */
     .heart {
       position: absolute;
-      font-size: 24px;
-      color: #ff4d6d;
-      animation: float 6s infinite;
+      color: #ff4d88;
+      font-size: 20px;
+      animation: float 6s linear infinite;
+      opacity: 0.8;
     }
     @keyframes float {
-      0% { transform: translateY(100vh) scale(1); opacity: 1; }
-      100% { transform: translateY(-10vh) scale(0.5); opacity: 0; }
+      0% { transform: translateY(100vh) scale(0.8); opacity: 0.8; }
+      100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div id="puzzle-board"></div>
-    <div>
-      <div id="pieces"></div>
-      <p class="message">Nuestro amor es un rompecabezas hermoso que siempre encajará 💕</p>
-    </div>
+  <h1>💖 Nuestro Rompecabezas 💖</h1>
+  <div id="puzzleContainer">
+    <canvas id="board" width="600" height="600"></canvas>
+    <canvas id="pieces" width="300" height="600"></canvas>
   </div>
+  <div id="mensaje">Eres la pieza que completa mi vida 💕</div>
 
   <script>
-    const board = document.getElementById("puzzle-board");
-    const piecesContainer = document.getElementById("pieces");
-    const size = 5; // puzzle de 5x5 = 25 piezas
-    const order = [...Array(size * size).keys()];
+    const rows = 6, cols = 6;
+    const boardCanvas = document.getElementById("board");
+    const piecesCanvas = document.getElementById("pieces");
+    const boardCtx = boardCanvas.getContext("2d");
+    const piecesCtx = piecesCanvas.getContext("2d");
 
-    // Mezclamos piezas
-    order.sort(() => Math.random() - 0.5);
+    const img = new Image();
+    img.src = "foto.jpg"; // usa aquí la foto que quieras
+    let pieceWidth, pieceHeight;
+    let pieces = [];
+    let draggingPiece = null, offsetX = 0, offsetY = 0;
 
-    order.forEach(i => {
-      const piece = document.createElement("div");
-      piece.classList.add("piece");
-      piece.style.backgroundPosition = `-${(i % size) * 100}px -${Math.floor(i / size) * 100}px`;
-      piece.setAttribute("data-index", i);
-      piece.draggable = true;
-      piecesContainer.appendChild(piece);
-    });
+    img.onload = () => {
+      pieceWidth = boardCanvas.width / cols;
+      pieceHeight = boardCanvas.height / rows;
+      createPieces();
+      shufflePieces();
+      draw();
+    };
 
-    let dragged;
-    document.querySelectorAll(".piece").forEach(piece => {
-      piece.addEventListener("dragstart", e => { dragged = piece; });
-    });
-
-    // Creamos celdas en el tablero
-    for (let i = 0; i < size * size; i++) {
-      const cell = document.createElement("div");
-      cell.style.width = "100px";
-      cell.style.height = "100px";
-      cell.style.position = "absolute";
-      cell.style.left = `${(i % size) * 100}px`;
-      cell.style.top = `${Math.floor(i / size) * 100}px`;
-      cell.setAttribute("data-index", i);
-      cell.addEventListener("dragover", e => e.preventDefault());
-      cell.addEventListener("drop", e => {
-        if (dragged) {
-          const expected = cell.getAttribute("data-index");
-          if (dragged.getAttribute("data-index") === expected) {
-            cell.appendChild(dragged);
-            dragged.style.position = "absolute";
-            dragged.style.left = 0;
-            dragged.style.top = 0;
-            checkWin();
-          }
+    function createPieces() {
+      pieces = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          pieces.push({
+            row: r, col: c,
+            x: piecesCanvas.width/2 + Math.random()*100 - 50,
+            y: Math.random()* (piecesCanvas.height - pieceHeight),
+            placed: false
+          });
         }
-      });
-      board.appendChild(cell);
+      }
     }
 
-    function checkWin() {
-      const cells = document.querySelectorAll("#puzzle-board div");
-      let correct = true;
-      cells.forEach(cell => {
-        const child = cell.firstChild;
-        if (!child || child.getAttribute("data-index") !== cell.getAttribute("data-index")) {
-          correct = false;
-        }
+    function shufflePieces() {
+      pieces.forEach(p => {
+        p.x = Math.random() * (piecesCanvas.width - pieceWidth);
+        p.y = Math.random() * (piecesCanvas.height - pieceHeight);
       });
-      if (correct) alert("🎉 ¡Completaste el rompecabezas amor! ❤️");
     }
 
-    // corazones flotando
+    function draw() {
+      boardCtx.clearRect(0,0,boardCanvas.width,boardCanvas.height);
+      piecesCtx.clearRect(0,0,piecesCanvas.width,piecesCanvas.height);
+      
+      // dibujar piezas colocadas en tablero
+      pieces.forEach(p => {
+        if (p.placed) {
+          boardCtx.drawImage(
+            img,
+            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight,
+            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight
+          );
+          boardCtx.strokeRect(p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight);
+        }
+      });
+
+      // dibujar piezas aún en el área
+      pieces.forEach(p => {
+        if (!p.placed || p === draggingPiece) {
+          piecesCtx.drawImage(
+            img,
+            p.col*pieceWidth, p.row*pieceHeight, pieceWidth, pieceHeight,
+            p.x, p.y, pieceWidth, pieceHeight
+          );
+          piecesCtx.strokeRect(p.x, p.y, pieceWidth, pieceHeight);
+        }
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    piecesCanvas.addEventListener("mousedown", e => {
+      const mx = e.offsetX, my = e.offsetY;
+      for (let i = pieces.length-1; i >= 0; i--) {
+        const p = pieces[i];
+        if (!p.placed && mx > p.x && mx < p.x+pieceWidth && my > p.y && my < p.y+pieceHeight) {
+          draggingPiece = p;
+          offsetX = mx - p.x;
+          offsetY = my - p.y;
+          break;
+        }
+      }
+    });
+
+    piecesCanvas.addEventListener("mousemove", e => {
+      if (draggingPiece) {
+        draggingPiece.x = e.offsetX - offsetX;
+        draggingPiece.y = e.offsetY - offsetY;
+      }
+    });
+
+    piecesCanvas.addEventListener("mouseup", e => {
+      if (draggingPiece) {
+        const correctX = draggingPiece.col*pieceWidth;
+        const correctY = draggingPiece.row*pieceHeight;
+        if (Math.abs(draggingPiece.x - correctX) < 20 &&
+            Math.abs(draggingPiece.y - correctY) < 20) {
+          draggingPiece.x = correctX;
+          draggingPiece.y = correctY;
+          draggingPiece.placed = true;
+        }
+        draggingPiece = null;
+      }
+    });
+
+    // corazones flotantes
     function createHeart() {
       const heart = document.createElement("div");
-      heart.classList.add("heart");
-      heart.innerHTML = "❤";
-      heart.style.left = Math.random() * window.innerWidth + "px";
-      heart.style.animationDuration = (4 + Math.random() * 4) + "s";
+      heart.className = "heart";
+      heart.textContent = "❤️";
+      heart.style.left = Math.random()*window.innerWidth+"px";
+      heart.style.top = "100vh";
+      heart.style.fontSize = (20 + Math.random()*20)+"px";
       document.body.appendChild(heart);
-      setTimeout(() => heart.remove(), 6000);
+      setTimeout(()=>heart.remove(),6000);
     }
     setInterval(createHeart, 800);
   </script>
 </body>
 </html>
+
