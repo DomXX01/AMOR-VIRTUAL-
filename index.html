@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Rompecabezas para ti ❤️</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f8f0ff;
+      font-family: Arial, sans-serif;
+    }
+    #puzzle {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 2px;
+      background: #ccc;
+      border: 4px solid #333;
+    }
+    .piece {
+      width: 100px;
+      height: 100px;
+      background-image: url('foto.jpg'); /* cambia "foto.jpg" por la foto que quieras */
+      background-size: 300px 300px;
+      cursor: grab;
+    }
+  </style>
+</head>
+<body>
+  <div id="puzzle"></div>
+
+  <script>
+    const puzzle = document.getElementById("puzzle");
+    const order = [...Array(9).keys()];
+
+    // Mezclar piezas
+    order.sort(() => Math.random() - 0.5);
+
+    order.forEach(i => {
+      const piece = document.createElement("div");
+      piece.classList.add("piece");
+      piece.style.backgroundPosition = `-${(i % 3) * 100}px -${Math.floor(i / 3) * 100}px`;
+      piece.setAttribute("data-index", i);
+      puzzle.appendChild(piece);
+    });
+
+    let dragged;
+    document.querySelectorAll(".piece").forEach(piece => {
+      piece.draggable = true;
+
+      piece.addEventListener("dragstart", e => {
+        dragged = piece;
+      });
+
+      piece.addEventListener("dragover", e => {
+        e.preventDefault();
+      });
+
+      piece.addEventListener("drop", e => {
+        e.preventDefault();
+        if (dragged !== piece) {
+          let temp = piece.style.backgroundPosition;
+          let tempIndex = piece.getAttribute("data-index");
+
+          piece.style.backgroundPosition = dragged.style.backgroundPosition;
+          piece.setAttribute("data-index", dragged.getAttribute("data-index"));
+
+          dragged.style.backgroundPosition = temp;
+          dragged.setAttribute("data-index", tempIndex);
+
+          checkWin();
+        }
+      });
+    });
+
+    function checkWin() {
+      const pieces = document.querySelectorAll(".piece");
+      let correct = true;
+      pieces.forEach((p, i) => {
+        if (p.getAttribute("data-index") != i) correct = false;
+      });
+      if (correct) alert("🎉 ¡Lo lograste amor! ❤️");
+    }
+  </script>
+</body>
+</html>
