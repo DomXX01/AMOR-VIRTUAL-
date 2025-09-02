@@ -5,85 +5,149 @@
   <title>Rompecabezas para ti ❤️</title>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      background: #f8f0ff;
+      background: #fff0f6;
       font-family: Arial, sans-serif;
+      overflow: hidden;
     }
-    #puzzle {
-      display: grid;
-      grid-template-columns: repeat(3, 100px);
-      grid-template-rows: repeat(3, 100px);
-      gap: 2px;
-      background: #ccc;
-      border: 4px solid #333;
+    .container {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+    }
+    #puzzle-board {
+      border: 3px solid #444;
+      width: 500px;
+      height: 500px;
+      background: #fafafa;
+      position: relative;
+    }
+    #pieces {
+      display: flex;
+      flex-wrap: wrap;
+      width: 300px;
+      height: 500px;
+      overflow-y: auto;
+      border: 2px dashed #aaa;
+      padding: 10px;
+      background: #fff;
     }
     .piece {
       width: 100px;
       height: 100px;
-      background-image: url('foto.jpg'); /* cambia "foto.jpg" por la foto que quieras */
-      background-size: 300px 300px;
+      background-image: url('foto.jpg'); /* Cambia por tu foto */
+      background-size: 500px 500px;
+      margin: 2px;
       cursor: grab;
+    }
+    .message {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 20px;
+      color: #333;
+      background: #fff;
+      padding: 10px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .heart {
+      position: absolute;
+      font-size: 24px;
+      color: #ff4d6d;
+      animation: float 6s infinite;
+    }
+    @keyframes float {
+      0% { transform: translateY(100vh) scale(1); opacity: 1; }
+      100% { transform: translateY(-10vh) scale(0.5); opacity: 0; }
     }
   </style>
 </head>
 <body>
-  <div id="puzzle"></div>
+  <div class="container">
+    <div id="puzzle-board"></div>
+    <div>
+      <div id="pieces"></div>
+      <p class="message">Nuestro amor es un rompecabezas hermoso que siempre encajará 💕</p>
+    </div>
+  </div>
 
   <script>
-    const puzzle = document.getElementById("puzzle");
-    const order = [...Array(9).keys()];
+    const board = document.getElementById("puzzle-board");
+    const piecesContainer = document.getElementById("pieces");
+    const size = 5; // puzzle de 5x5 = 25 piezas
+    const order = [...Array(size * size).keys()];
 
-    // Mezclar piezas
+    // Mezclamos piezas
     order.sort(() => Math.random() - 0.5);
 
     order.forEach(i => {
       const piece = document.createElement("div");
       piece.classList.add("piece");
-      piece.style.backgroundPosition = `-${(i % 3) * 100}px -${Math.floor(i / 3) * 100}px`;
+      piece.style.backgroundPosition = `-${(i % size) * 100}px -${Math.floor(i / size) * 100}px`;
       piece.setAttribute("data-index", i);
-      puzzle.appendChild(piece);
+      piece.draggable = true;
+      piecesContainer.appendChild(piece);
     });
 
     let dragged;
     document.querySelectorAll(".piece").forEach(piece => {
-      piece.draggable = true;
-
-      piece.addEventListener("dragstart", e => {
-        dragged = piece;
-      });
-
-      piece.addEventListener("dragover", e => {
-        e.preventDefault();
-      });
-
-      piece.addEventListener("drop", e => {
-        e.preventDefault();
-        if (dragged !== piece) {
-          let temp = piece.style.backgroundPosition;
-          let tempIndex = piece.getAttribute("data-index");
-
-          piece.style.backgroundPosition = dragged.style.backgroundPosition;
-          piece.setAttribute("data-index", dragged.getAttribute("data-index"));
-
-          dragged.style.backgroundPosition = temp;
-          dragged.setAttribute("data-index", tempIndex);
-
-          checkWin();
-        }
-      });
+      piece.addEventListener("dragstart", e => { dragged = piece; });
     });
 
-    function checkWin() {
-      const pieces = document.querySelectorAll(".piece");
-      let correct = true;
-      pieces.forEach((p, i) => {
-        if (p.getAttribute("data-index") != i) correct = false;
+    // Creamos celdas en el tablero
+    for (let i = 0; i < size * size; i++) {
+      const cell = document.createElement("div");
+      cell.style.width = "100px";
+      cell.style.height = "100px";
+      cell.style.position = "absolute";
+      cell.style.left = `${(i % size) * 100}px`;
+      cell.style.top = `${Math.floor(i / size) * 100}px`;
+      cell.setAttribute("data-index", i);
+      cell.addEventListener("dragover", e => e.preventDefault());
+      cell.addEventListener("drop", e => {
+        if (dragged) {
+          const expected = cell.getAttribute("data-index");
+          if (dragged.getAttribute("data-index") === expected) {
+            cell.appendChild(dragged);
+            dragged.style.position = "absolute";
+            dragged.style.left = 0;
+            dragged.style.top = 0;
+            checkWin();
+          }
+        }
       });
-      if (correct) alert("🎉 ¡Lo lograste amor! ❤️");
+      board.appendChild(cell);
     }
+
+    function checkWin() {
+      const cells = document.querySelectorAll("#puzzle-board div");
+      let correct = true;
+      cells.forEach(cell => {
+        const child = cell.firstChild;
+        if (!child || child.getAttribute("data-index") !== cell.getAttribute("data-index")) {
+          correct = false;
+        }
+      });
+      if (correct) alert("🎉 ¡Completaste el rompecabezas amor! ❤️");
+    }
+
+    // corazones flotando
+    function createHeart() {
+      const heart = document.createElement("div");
+      heart.classList.add("heart");
+      heart.innerHTML = "❤";
+      heart.style.left = Math.random() * window.innerWidth + "px";
+      heart.style.animationDuration = (4 + Math.random() * 4) + "s";
+      document.body.appendChild(heart);
+      setTimeout(() => heart.remove(), 6000);
+    }
+    setInterval(createHeart, 800);
   </script>
 </body>
 </html>
