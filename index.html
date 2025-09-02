@@ -5,31 +5,35 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Rompecabezas 6x6 — Regalo ❤️</title>
   <style>
-    :root{ --bg:#fff6fb; --board-size:680px; --tray-w:360px; --gap:28px; }
+    :root{ --bg:#fff6fb; --gap:20px; --board-size:680px; --tray-w:360px; }
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;font-family:Inter,system-ui,Arial;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
     .wrap{display:flex;gap:var(--gap);align-items:flex-start}
     .board{
       width:var(--board-size); height:var(--board-size);
-      background:#fff; border-radius:14px; border:3px solid #333; position:relative;
+      background:#fff; border-radius:12px; border:3px solid #333; position:relative;
       box-shadow:0 12px 36px rgba(0,0,0,.12); overflow:hidden;
     }
-    canvas#guide{position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.8}
+    canvas#guide{position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.9}
     .tray{
       width:var(--tray-w); max-width:40vw; height:var(--board-size);
-      background:linear-gradient(#fff,#fffafa); border-radius:12px; border:2px dashed #d6d6d6;
+      background:linear-gradient(#fff,#fffefa); border-radius:12px; border:2px dashed #d6d6d6;
       padding:12px; position:relative; overflow:auto;
     }
     .piece-canvas{
       position:absolute; touch-action:none; cursor:grab; border-radius:6px;
-      box-shadow:0 6px 22px rgba(0,0,0,.14);
+      box-shadow:0 8px 28px rgba(0,0,0,.16);
       user-select:none;
+      transition: box-shadow .12s, transform .12s;
+      will-change: left, top, transform;
     }
+    .piece-canvas:active{ cursor:grabbing; transform: scale(1.02); box-shadow:0 14px 40px rgba(0,0,0,.22) }
     .controls{display:flex; gap:8px; margin-bottom:8px; align-items:center; justify-content:center}
     button{background:#ff6b92;color:#fff;border:none;padding:8px 12px;border-radius:999px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.09)}
+    select{padding:8px;border-radius:8px;border:1px solid #eee}
     .note{margin-top:8px;background:#fff;padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);text-align:center}
     .watermark{position:fixed;left:12px;bottom:10px;font-size:12px;opacity:.6}
-    @media (max-width:1000px){:root{--board-size:86vw;--tray-w:86vw}.wrap{flex-direction:column;align-items:center}.tray{max-height:48vh}}
+    @media (max-width:1000px){ :root{ --board-size:86vw; --tray-w:86vw } .wrap{flex-direction:column;align-items:center} .tray{max-height:48vh} }
   </style>
 </head>
 <body>
@@ -50,23 +54,18 @@
       </div>
 
       <div class="tray" id="tray"></div>
-      <div class="note"><strong>Nuestra historia es un rompecabezas 💕</strong><div style="font-size:13px;color:#666">Arrastra las piezas libremente. No hay snap automático — es 100% manual.</div></div>
+      <div class="note"><strong>Nuestra historia es un rompecabezas 💕</strong>
+        <div style="font-size:13px;color:#666">Arrastra las piezas libremente. Cuando una pieza se suelta cerca de su sitio, se encaja automáticamente.</div>
+      </div>
     </div>
   </div>
 
   <div class="watermark">Hecho con ❤️ por Dominick</div>
 
-  <script>
-/*
-  Instrucciones:
-  1) Guarda este archivo como index.html.
-  2) Coloca la foto que quieras usar como "foto.jpg" en la misma carpeta.
-  3) Abre index.html en tu navegador.
-*/
-
-// CONFIG
+<script>
+/* -------- CONFIG -------- */
 let ROWS = 6, COLS = 6;
-const IMG_SRC = 'foto.jpg'; // cambia si tu imagen tiene otro nombre
+const IMG_SRC = 'foto.jpg'; // coloca tu foto con este nombre en la misma carpeta
 const BOARD = document.getElementById('board');
 const GUIDE = document.getElementById('guide');
 const TRAY  = document.getElementById('tray');
@@ -74,7 +73,10 @@ const SHUFFLE = document.getElementById('shuffle');
 const TOGGLE = document.getElementById('toggleGuide');
 const DIFF = document.getElementById('difficulty');
 
-// adapt canvas to element size
+/* util */
+const rand = (a,b)=> a + Math.random()*(b-a);
+
+/* --- ajuste canvas al tamaño real del board --- */
 function fitGuide(){
   const rect = BOARD.getBoundingClientRect();
   GUIDE.width = rect.width;
@@ -83,10 +85,7 @@ function fitGuide(){
 fitGuide();
 window.addEventListener('resize', fitGuide);
 
-// util
-const rand = (a,b)=> a + Math.random()*(b-a);
-
-// TAB MAP generation: protrusions between pieces
+/* --- genera mapa de pestañas (consistente entre vecinos) --- */
 function buildTabMap(rows, cols){
   const map = Array.from({length:rows}, ()=>Array.from({length:cols}, ()=>({top:0,left:0,right:0,bottom:0})));
   for(let r=0;r<rows;r++){
@@ -101,7 +100,7 @@ function buildTabMap(rows, cols){
   return map;
 }
 
-// draw jigsaw path on ctx for one piece side s (at 0,0)
+/* --- dibuja la forma jigsaw para una pieza (lado s) en ctx --- */
 function piecePath(ctx, s, tabs){
   const tab = s * 0.32;
   const tc = tab * 0.55;
@@ -146,13 +145,15 @@ function piecePath(ctx, s, tabs){
   ctx.closePath();
 }
 
-// load image
+/* --- carga imagen y crea puzzle --- */
 const img = new Image();
 img.src = IMG_SRC;
 img.onload = ()=> initPuzzle(img);
-img.onerror = ()=> alert('No se pudo cargar foto.jpg. Asegúrate de que esté en la misma carpeta y se llame foto.jpg');
+img.onerror = ()=> alert('No se pudo cargar foto.jpg. Asegúrate de que esté en la misma carpeta y se llame foto.jpg.');
 
-let pieces = []; // lista de piezas (objetos con el canvas)
+/* piezas almacenadas aquí */
+let pieces = [];
+
 function initPuzzle(image){
   ROWS = parseInt(DIFF.value) || ROWS;
   COLS = ROWS;
@@ -162,48 +163,36 @@ function initPuzzle(image){
   const boardSize = Math.min(boardRect.width, boardRect.height);
   const pieceSide = Math.floor(boardSize / COLS);
 
-  // crear mapa
+  // generar mapa y dibujar guía
   const map = buildTabMap(ROWS, COLS);
-
-  // dibujo de guía en canvas GUIDE
   const gctx = GUIDE.getContext('2d');
   gctx.clearRect(0,0,GUIDE.width,GUIDE.height);
-  gctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  gctx.lineWidth = 2;
-
-  // scale factor from image to board coordinates
-  const scaleX = boardSize / image.width;
-  const scaleY = boardSize / image.height;
-  // we draw guide resized to boardSize
   gctx.save();
-  // center guide if canvas larger
   const offsetX = (GUIDE.width - boardSize)/2;
   const offsetY = (GUIDE.height - boardSize)/2;
   gctx.translate(offsetX, offsetY);
-
+  gctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  gctx.lineWidth = 2;
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
-      const tabs = map[r][c];
-      const x = c * pieceSide;
-      const y = r * pieceSide;
       gctx.save();
-      gctx.translate(x, y);
-      piecePath(gctx, pieceSide, tabs);
+      gctx.translate(c*pieceSide, r*pieceSide);
+      piecePath(gctx, pieceSide, map[r][c]);
       gctx.stroke();
       gctx.restore();
     }
   }
   gctx.restore();
 
-  // remove any prior pieces
+  // limpiar piezas previas
   pieces.forEach(p=>{ if(p.el && p.el.remove) p.el.remove(); });
   pieces = [];
 
-  // create piece canvases
+  // crear canvas por pieza
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       const tabs = map[r][c];
-      const pad = Math.ceil(pieceSide * 0.55); // room for tabs
+      const pad = Math.ceil(pieceSide * 0.55); // espacio para las pestañas
       const cw = pieceSide + pad*2;
       const ch = pieceSide + pad*2;
       const canvas = document.createElement('canvas');
@@ -211,67 +200,87 @@ function initPuzzle(image){
       canvas.className = 'piece-canvas';
       canvas.style.width = cw + 'px';
       canvas.style.height = ch + 'px';
-      // start position (inside tray area)
-      canvas.style.left = (BOARD.getBoundingClientRect().right + 20 + rand(0,180)) + 'px';
-      canvas.style.top  = (BOARD.getBoundingClientRect().top + rand(0,200)) + 'px';
+      canvas.style.position = 'absolute';
+
+      // posición inicial: en pila (tray) a la derecha (luego se re-colocan)
+      canvas.style.left = (boardRect.right + 20 + rand(0,180)) + 'px';
+      canvas.style.top  = (boardRect.top + rand(0,boardRect.height - ch - 20)) + 'px';
 
       const ctx = canvas.getContext('2d');
       ctx.translate(pad, pad);
-      // clip to jigsaw shape
       piecePath(ctx, pieceSide, tabs);
       ctx.clip();
 
-      // compute image source rectangle for this piece
+      // calcular porción de imagen (fuente)
       const sx = Math.floor((c * image.width) / COLS);
       const sy = Math.floor((r * image.height) / ROWS);
       const sw = Math.ceil(image.width / COLS);
       const sh = Math.ceil(image.height / ROWS);
-      // draw image part scaled to pieceSide
+
+      // dibujar la imagen escalada dentro de la pieza
       ctx.drawImage(image, sx, sy, sw, sh, 0, 0, pieceSide, pieceSide);
 
-      // stroke edge to define piece
+      // contorno blanco externo (estética clásica)
+      ctx.save();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.stroke();
+      ctx.restore();
+
+      // borde sutil
       ctx.strokeStyle = 'rgba(0,0,0,0.08)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       document.body.appendChild(canvas);
 
-      const piece = {
+      // target absoluto donde debe ir la pieza (document coords)
+      const targetX = boardRect.left + c*pieceSide - pad;
+      const targetY = boardRect.top  + r*pieceSide - pad;
+
+      pieces.push({
         el: canvas,
         r, c,
         pad,
-        placed:false,
-        targetX: BOARD.getBoundingClientRect().left + c*pieceSide - pad,
-        targetY: BOARD.getBoundingClientRect().top  + r*pieceSide - pad,
-        width:cw, height:ch
-      };
-      pieces.push(piece);
+        placed: false,
+        targetX, targetY,
+        width: cw, height: ch
+      });
     }
   }
 
-  // shuffle layout in tray (pile)
+  // colocar en pila (tray) con rotaciones pequeñas
   layoutPile();
 
-  // enable dragging
+  // activar drag
   enableDrag();
 
-  // actions
-  SHUFFLE.onclick = ()=>{ layoutPile(); };
-  TOGGLE.onclick = ()=>{ GUIDE.style.display = GUIDE.style.display === 'none' ? 'block' : 'none'; };
-  DIFF.onchange = ()=>{ location.reload(); };
+  // eventos UI
+  SHUFFLE.onclick = ()=> { layoutPile(); };
+  TOGGLE.onclick = ()=> { GUIDE.style.display = (GUIDE.style.display === 'none') ? 'block' : 'none'; };
+  DIFF.onchange = ()=> { location.reload(); };
+
+  // actualizar targets al redimensionar (para snap correct)
+  window.addEventListener('resize', () => {
+    const br = BOARD.getBoundingClientRect();
+    const ps = Math.floor(Math.min(br.width, br.height) / COLS);
+    pieces.forEach(p => {
+      p.targetX = br.left + p.c*ps - p.pad;
+      p.targetY = br.top  + p.r*ps - p.pad;
+    });
+  });
 }
 
-// place pieces in a pile (tray area at right of board)
+/* coloca piezas en pila */
 function layoutPile(){
   const boardRect = BOARD.getBoundingClientRect();
   const trayLeft = boardRect.right + 18;
   const trayTop  = boardRect.top + 12;
   const trayH = boardRect.height - 24;
-  pieces.forEach((p,i)=>{
+  pieces.forEach((p,i) => {
     p.placed = false;
     p.el.style.position = 'absolute';
-    // random small rotations
-    const rot = rand(-18,18);
+    const rot = rand(-22,22);
     p.el.style.transform = `rotate(${rot}deg)`;
     p.el.style.left = (trayLeft + rand(6, 200)) + 'px';
     p.el.style.top  = (trayTop  + rand(6, trayH - p.height - 20)) + 'px';
@@ -280,18 +289,24 @@ function layoutPile(){
   });
 }
 
-// pointer drag implementation (works for touch + mouse)
+/* drag con pointer events — soporta touch + mouse */
 function enableDrag(){
   let active = null;
   pieces.forEach((p, idx) => {
     const el = p.el;
+    // ensure absolute numeric left/top exist
+    if(!el.style.left) el.style.left = el.getBoundingClientRect().left + 'px';
+    if(!el.style.top)  el.style.top  = el.getBoundingClientRect().top  + 'px';
+
     el.onpointerdown = (ev) => {
+      if(p.placed) return; // pieza ya encajada no se puede mover
       el.setPointerCapture(ev.pointerId);
       const rect = el.getBoundingClientRect();
-      active = { p, offsetX: ev.clientX - rect.left, offsetY: ev.clientY - rect.top };
-      el.style.zIndex = 1000;
+      active = { p, offsetX: ev.clientX - rect.left, offsetY: ev.clientY - rect.top, startZ: el.style.zIndex };
+      el.style.zIndex = 9999;
       el.style.transition = 'none';
     };
+
     el.onpointermove = (ev) => {
       if(!active || active.p !== p) return;
       const x = ev.clientX - active.offsetX;
@@ -299,38 +314,62 @@ function enableDrag(){
       el.style.left = x + 'px';
       el.style.top  = y + 'px';
     };
+
     el.onpointerup = (ev) => {
       if(!active || active.p !== p) return;
-      try{ el.releasePointerCapture(ev.pointerId); }catch(e){}
+      try { el.releasePointerCapture(ev.pointerId); } catch(e){}
       el.style.transition = '';
+      // snap test: si está suficientemente cerca de su target -> encaja
+      const rect = el.getBoundingClientRect();
+      const dx = rect.left - p.targetX;
+      const dy = rect.top  - p.targetY;
+      const dist = Math.hypot(dx, dy);
+      // tolerancia proporcional al tamaño de la pieza
+      const tolerance = Math.max(24, Math.min(p.width, p.height) * 0.28);
+      if(dist < tolerance){
+        // mover exactamente a target y bloquear
+        el.style.left = p.targetX + 'px';
+        el.style.top  = p.targetY + 'px';
+        el.style.transform = 'rotate(0deg)';
+        el.style.zIndex = 200;
+        p.placed = true;
+        el.classList.add('placed');
+        // opcional: bajar opacidad o poner borde para indicar ajuste
+        el.style.boxShadow = '0 6px 18px rgba(0,0,0,.08)';
+        checkWin();
+      } else {
+        // dejar donde quedó (libre)
+        el.style.zIndex = 100 + idx;
+      }
       active = null;
-      el.style.zIndex = 100 + idx;
-      // do NOT auto-snap — user wants free movement
     };
   });
 }
 
-// small decorative hearts on completion
-function celebrate(){
-  for(let i=0;i<40;i++){
-    setTimeout(()=> spawnHeart(), i*60);
+/* check si ya completó todo */
+function checkWin(){
+  if(pieces.length > 0 && pieces.every(p => p.placed)){
+    // celebrar
+    for(let i=0;i<40;i++) setTimeout(()=> spawnHeart(), i*60);
+    setTimeout(()=> alert('🎉 ¡Completaste el rompecabezas! ❤️'), 250);
   }
 }
+
+/* pequeñas animaciones de corazón */
 function spawnHeart(){
   const d = document.createElement('div');
-  d.textContent = Math.random()>.5? '❤' : '💗';
-  d.style.position='fixed';
+  d.textContent = Math.random()>.5 ? '❤' : '💗';
+  d.style.position = 'fixed';
   d.style.left = (20 + Math.random()*(innerWidth-40)) + 'px';
   d.style.top = innerHeight + 'px';
   d.style.fontSize = (14 + Math.random()*28) + 'px';
-  d.style.pointerEvents='none';
-  d.style.zIndex = 9999;
+  d.style.pointerEvents = 'none';
+  d.style.zIndex = 99999;
   document.body.appendChild(d);
-  // animate upward
-  d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-120vh)' }], { duration: 4000 + Math.random()*2000, easing:'linear' });
+  d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-120vh)' }], { duration: 3800 + Math.random()*2000, easing:'linear' });
   setTimeout(()=> d.remove(), 6000);
 }
 
-  </script>
+</script>
 </body>
 </html>
